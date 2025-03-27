@@ -16,13 +16,14 @@ RUN apt-get update && apt-get install -y \
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Configurar directorio de trabajo
-WORKDIR /var/www/html
+WORKDIR /var/www/html/public
+
 
 # Copiar archivos del proyecto
 COPY . .
 
 # Establecer permisos adecuados
-RUN chown -R www-data:www-data /var/www/public \
+RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Habilitar mod_rewrite para Laravel
