@@ -34,6 +34,9 @@ RUN chown -R www-data:www-data /var/www/html \
 # Habilitar mod_rewrite para Laravel
 RUN a2enmod rewrite
 
+# Cambiar el DocumentRoot de Apache a la carpeta public de Laravel
+RUN sed -i "s|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|g" /etc/apache2/sites-available/000-default.conf
+
 # Exponer el puerto 80
 EXPOSE 80
 
