@@ -1,42 +1,20 @@
-# Imagen base de PHP con Apache
-FROM php:8.2-apache
+FROM richarvey/nginx-php-fpm:3.1.6
 
-# Instalar extensiones necesarias para Laravel
-RUN apt-get update && apt-get install -y \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    zip \
-    unzip \
-    git \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql
-
-# Instalar Composer
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-
-# Configurar directorio de trabajo
-WORKDIR /var/www/html/public
-
-
-# Copiar archivos del proyecto
 COPY . .
 
+# Image config
+ENV SKIP_COMPOSER 1
+ENV WEBROOT /var/www/html/public
+ENV PHP_ERRORS_STDERR 1
+ENV RUN_SCRIPTS 1
+ENV REAL_IP_HEADER 1
 
-# Crear carpetas necesarias si no existen
-RUN mkdir -p /var/www/html/storage \
-    && mkdir -p /var/www/html/bootstrap/cache
+# Laravel config
+ENV APP_ENV production
+ENV APP_DEBUG false
+ENV LOG_CHANNEL stderr
 
-# Establecer permisos adecuados
-RUN chown -R www-data:www-data /var/www/html \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+# Allow composer to run as root
+ENV COMPOSER_ALLOW_SUPERUSER 1
 
-# Habilitar mod_rewrite para Laravel
-RUN a2enmod rewrite
-
-
-# Exponer el puerto 80
-EXPOSE 80
-
-# Comando por defecto
-CMD ["apache2-foreground"]
+CMD ["/start.sh"]
