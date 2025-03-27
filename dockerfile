@@ -22,6 +22,11 @@ WORKDIR /var/www/html/public
 # Copiar archivos del proyecto
 COPY . .
 
+
+# Crear carpetas necesarias si no existen
+RUN mkdir -p /var/www/html/storage \
+    && mkdir -p /var/www/html/bootstrap/cache
+
 # Establecer permisos adecuados
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
