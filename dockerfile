@@ -22,7 +22,7 @@ WORKDIR /var/www/html
 COPY . .
 
 # Establecer permisos adecuados
-RUN chown -R www-data:www-data /var/www/html \
+RUN chown -R www-data:www-data /var/www/public \
     && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Habilitar mod_rewrite para Laravel
