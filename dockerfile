@@ -1,109 +1,41 @@
-FROM node:18.3.0-alpine as FrontendStage
+# Imagen base de PHP con Apache
+FROM php:8.4-apache
 
-COPY . /var/www/html
-WORKDIR /var/www/html/
+# Instalar extensiones necesarias
+RUN apt-get update && apt-get install -y \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    nano \
+    unzip \
+    libpq-dev \
+    && docker-php-ext-configure gd \
+    && docker-php-ext-install gd pdo pdo_mysql pdo_pgsql \
+    && a2enmod rewrite
 
-# Essentials
-RUN apk add --no-cache tzdata
-ENV TZ=Asia/Jakarta
+# Configurar DocumentRoot para Laravel
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/public|' /etc/apache2/sites-available/000-default.conf
 
-RUN npm install
-RUN npm run production
-RUN npm run tailwind-production
-RUN rm -rf /var/www/html/node_modules
+# Instalar Composer manualmente
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
 
-FROM alpine:latest as BuildStage
+# Configurar directorio de trabajo
+WORKDIR /var/www/html
 
-WORKDIR /var/www/html/
-COPY --from=FrontendStage /var/www/html /var/www/html/
-
-RUN apk add --no-cache zip unzip curl nginx supervisor
-
-# Installing bash
-RUN apk add bash
-RUN sed -i 's/bin\/ash/bin\/bash/g' /etc/passwd
-
-# Installing PHP
-RUN apk add --no-cache php82 \
-    php82-common \
-    php82-fpm \
-    php82-pdo \
-    php82-opcache \
-    php82-zip \
-    php82-gd \
-    php82-phar \
-    php82-iconv \
-    php82-cli \
-    php82-curl \
-    php82-openssl \
-    php82-mbstring \
-    php82-exif \
-    php82-tokenizer \
-    php82-fileinfo \
-    php82-json \
-    php82-xml \
-    php82-xmlreader \
-    php82-xmlwriter \
-    php82-simplexml \
-    php82-dom \
-    php82-pdo_mysql \
-    php82-tokenizer \
-    php82-pecl-redis
-
-RUN ln -s /usr/bin/php82 /usr/bin/php
-
-# Installing composer
-RUN curl -sS https://getcomposer.org/installer -o composer-setup.php
-RUN php composer-setup.php --install-dir=/usr/local/bin --filename=composer
-RUN rm -rf composer-setup.php
-
-# Configure supervisor
-RUN mkdir -p /etc/supervisor.d/
-COPY ./docker/supervisor/supervisord.ini /etc/supervisor.d/supervisord.ini
-
-# Configure PHP
-RUN mkdir -p /run/php/
-RUN touch /run/php/php8.2-fpm.pid
-
-COPY ./docker/php/php-fpm.conf /etc/php82/php-fpm.conf
-COPY ./docker/php/php.ini-production /etc/php82/php.ini
-
-# Configure nginx
-COPY ./docker/nginx/nginx.conf /etc/nginx/
-COPY ./docker/nginx/webserver.conf /etc/nginx/http.d/default.conf
-
-RUN mkdir -p /run/nginx/
-RUN touch /run/nginx/nginx.pid
-
-RUN ln -sf /dev/stdout /var/log/nginx/access.log
-RUN ln -sf /dev/stderr /var/log/nginx/error.log
-
-# Building process
+# Copiar archivos del proyecto al contenedor
 COPY . .
-RUN composer install
-RUN chown -R nobody:nobody /var/www/html/storage
 
-# Run a cron job
-ADD ./docker/cron/crontab.txt /crontab.txt
-RUN /usr/bin/crontab /crontab.txt
+# Instalar dependencias de Laravel
+RUN composer install --no-dev --optimize-autoloader
 
-# add log for supervisor laravel worker
-RUN touch /var/www/html/storage/logs/worker.log
+# Configurar permisos adecuados
+RUN mkdir -p /var/www/html/storage /var/www/html/bootstrap/cache && \
+    chown -R www-data:www-data /var/www/html && \
+    chmod -R 755 /var/www/html && \
+    chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
 
-# Generate Laravel app encryption key
-RUN cp .env.example .env
-RUN php artisan key:generate --ansi
-RUN php artisan vendor:publish --all
-RUN php artisan storage:link
-
-RUN chown -R nginx:nginx /var/www/html -v
-RUN chmod -R 777 /var/www/html -v
-RUN chown -R nginx:nginx /var/lib/nginx -v
-RUN chmod -R 755 /var/lib/nginx -v
-RUN chmod -R 755 /var/log/nginx -v
-
-# Exposing port 80 (http)
+# Exponer el puerto 80
 EXPOSE 80
 
-# Auto start supervisor on start
-CMD ["/usr/bin/supervisord"]
+# Iniciar Apache
+CMD ["apache2-foreground"]
